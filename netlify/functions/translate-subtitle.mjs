@@ -130,7 +130,66 @@ async function fetchSinhalaSubtitle(imdb_id, movieTitle) {
         } catch (e) { console.warn('[OPENSUBS-EN]', e.message); }
     }
 
-    if (!enSrt) throw new Error('No subtitle source found. Add SUBDL_KEY or OPENSUBS_KEY to Netlify environment variables.');
+    // ── TIER 4: YIFY Subtitles (no key needed — free) ─────────────────
+    if (!enSrt) {
+        try {
+            const yifyR = await axios.get(`https://yifysubtitles.ch/movie-imdb/${imdb_id}`, { timeout: 8000 });
+            const $y = cheerio.load(yifyR.data);
+            // Prefer Sinhala, fall back to English
+            let subPath = '';
+            $y('.select-subtitle tr').each((_, row) => {
+                const lang = $y(row).find('td').eq(1).text().trim().toLowerCase();
+                const link = $y(row).find('a[href*="/subtitles/"]').attr('href');
+                if (lang === 'sinhala' && !subPath) subPath = link;
+            });
+            if (!subPath) {
+                $y('.select-subtitle tr').each((_, row) => {
+                    const lang = $y(row).find('td').eq(1).text().trim().toLowerCase();
+                    const link = $y(row).find('a[href*="/subtitles/"]').attr('href');
+                    if (lang === 'english' && !subPath) subPath = link;
+                });
+            }
+            if (subPath) {
+                const subPage = await axios.get(`https://yifysubtitles.ch${subPath}`, { timeout: 8000 });
+                const $sp = cheerio.load(subPage.data);
+                const dlLink = $sp('a.download-subtitle').attr('href') || $sp('a[href$=".zip"]').first().attr('href');
+                if (dlLink) {
+                    const fullLink = dlLink.startsWith('http') ? dlLink : `https://yifysubtitles.ch${dlLink}`;
+                    const zipRes = await axios.get(fullLink, { responseType: 'arraybuffer', timeout: 10000 });
+                    const zip = new AdmZip(Buffer.from(zipRes.data));
+                    const srt = zip.getEntries().find(e => e.entryName.toLowerCase().endsWith('.srt') && !e.entryName.includes('__MACOSX'));
+                    if (srt) {
+                        enSrt = srt.getData().toString('utf8');
+                        console.log('[YIFY] ✅ Found subtitle via YIFY');
+                    }
+                }
+            }
+        } catch (e) { console.warn('[YIFY]', e.message); }
+    }
+
+    // ── TIER 5: SubDL free (no key, search by title) ──────────────────
+    if (!enSrt && movieTitle) {
+        try {
+            const searchQ = encodeURIComponent(movieTitle);
+            const r = await axios.get(`https://api.subdl.com/auto?query=${searchQ}&languages=en`, {
+                headers: { 'Accept': 'application/json' }, timeout: 8000
+            });
+            const results = r.data?.subtitles || r.data?.results || [];
+            if (results.length > 0) {
+                const first = results[0];
+                const zipUrl = first.url || first.zip_link || first.download_link;
+                if (zipUrl) {
+                    const base = zipUrl.startsWith('http') ? zipUrl : `https://dl.subdl.com${zipUrl}`;
+                    const zipRes = await axios.get(base, { responseType: 'arraybuffer', timeout: 10000 });
+                    const zip = new AdmZip(Buffer.from(zipRes.data));
+                    const srt = zip.getEntries().find(e => e.entryName.toLowerCase().endsWith('.srt') && !e.entryName.includes('__MACOSX'));
+                    if (srt) { enSrt = srt.getData().toString('utf8'); console.log('[SUBDL-FREE] ✅ Found via free search'); }
+                }
+            }
+        } catch (e) { console.warn('[SUBDL-FREE]', e.message); }
+    }
+
+    if (!enSrt) throw new Error('No English subtitle source found for this movie. Subtitles may not be available yet.');
 
     console.log('[TRANSLATE] Starting Sinhala translation...');
     return translateVttToSinhala(srtToVtt(enSrt));
