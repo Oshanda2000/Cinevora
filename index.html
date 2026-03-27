@@ -3264,7 +3264,7 @@
             section.id = 'download-section';
             section.style.cssText = 'margin-top:2rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:1.5rem;';
             
-            // Premium Header
+            // The header is always shown now
             const headerHtml = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                     <div style="display:flex; flex-direction:column; gap:2px;">
@@ -3274,33 +3274,11 @@
                            </span>
                            Download Qualities
                         </h3>
-                        <p style="font-size:0.75rem; color:var(--muted); margin-left:2.5rem;">Select a quality to start server-side fetching</p>
+                        <p style="font-size:0.75rem; color:var(--muted); margin-left:2.5rem;">Select a quality to start your download</p>
                     </div>
                     <span id="dl-conn-note" style="font-size:0.65rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em; padding:0.4rem 0.8rem; background:rgba(255,255,255,0.05); border-radius:50px;">🔄 Syncing...</span>
                 </div>
             `;
-
-            if (!IS_LOCAL) {
-                section.innerHTML = `
-                    ${headerHtml}
-                    <div style="background:linear-gradient(135deg, rgba(106,0,255,0.08), rgba(0,0,0,0)); border:1px solid rgba(106,0,255,0.2); border-radius:16px; padding:1.5rem; color:var(--muted); font-size:0.85rem; position:relative; overflow:hidden;">
-                        <div style="position:relative; z-index:1;">
-                            <p style="margin-bottom:0.8rem; color:var(--text); font-weight:700; display:flex; align-items:center; gap:0.5rem;">
-                               <span style="color:#6a11cb;">★</span> Netlify Cloud Note
-                            </p>
-                            To download directly to your server, switch to the local backend. Otherwise, browse manual sources:
-                            <div style="margin-top:1.2rem; display:flex; gap:0.8rem;">
-                                <a href="https://yts.mx/movie/${encodeURIComponent(imdbId || title)}" target="_blank" class="btn-info" style="text-decoration:none; padding:0.7rem 1.2rem; font-size:0.75rem; background:rgba(232,184,109,0.1); border:1px solid rgba(232,184,109,0.3); border-radius:10px; color:var(--gold); font-weight:700; display:flex; align-items:center; gap:0.4rem;">
-                                   Open YTS.mx 
-                                   <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6m4-3h6v6m-11 5L21 3"/></svg>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                actionsEl.insertAdjacentElement('afterend', section);
-                return;
-            }
 
             section.innerHTML = `
                 ${headerHtml}
@@ -3322,10 +3300,9 @@
             const connNote = document.getElementById('dl-conn-note');
             const fallbackEl = document.getElementById('dl-fallback');
             const query = imdbId || encodeURIComponent(`${title} ${year}`);
-
             try {
-                // FETCH VIA BACKEND PROXY
-                const res = await fetch(`${BACKEND_URL}/api/yts-proxy?query=${query}`);
+                // FETCH VIA PROXY (Relative path works on both local and Netlify redirects)
+                const res = await fetch(`/api/yts-proxy?query=${query}`);
                 if (!res.ok) throw new Error("CORS or Connection Error");
                 const json = await res.json();
                 const movie = json?.data?.movies?.[0];
@@ -3421,6 +3398,13 @@
 
         const rowTimers = {};
         async function triggerRowDownload(mid, url, title) {
+            // IF on Netlify (or not explicitly local), direct open magnet link
+            if (!IS_LOCAL) {
+                showToast('🚀 Opening Torrent Magnet Link...');
+                window.open(url, '_blank');
+                return;
+            }
+
             const dlBtn = document.getElementById('dl-' + mid);
             const prgCont = document.getElementById('prog-cont-' + mid);
             const statBar = document.getElementById('stat-bar-' + mid);

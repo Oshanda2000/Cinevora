@@ -10,3 +10,21 @@
 
 [functions."get-subtitle"]
   timeout = 15
+
+[functions."yts-proxy"]
+  timeout = 10
+
+[[redirects]]
+  from = "/api/yts-proxy"
+  to = "/.netlify/functions/yts-proxy"
+  status = 200
+
+[[redirects]]
+  from = "/api/translate-subtitle"
+  to = "/.netlify/functions/translate-subtitle"
+  status = 200
+
+[[redirects]]
+  from = "/api/get-subtitle"
+  to = "/.netlify/functions/get-subtitle"
+  status = 200
