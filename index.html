@@ -1359,19 +1359,24 @@
         /* ─── NOTIFICATION ───────────────────────────────────────── */
         .toast {
             position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            z-index: 99999; /* must be > 10000 (local-player-overlay) */
-            background: var(--bg3);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 1rem 1.5rem;
-            border-radius: 10px;
-            font-size: 0.875rem;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            bottom: 2.5rem;
+            right: 2.5rem;
+            z-index: 999999;
+            background: rgba(15, 15, 25, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 0.75rem 1.25rem;
+            border-radius: 12px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
             transform: translateY(150%);
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            max-width: 350px;
+            transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            max-width: 320px;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
         }
 
         .toast.show {
@@ -2394,8 +2399,8 @@
                             </script>
                             <button onclick="seekSubsToTime()" style="background:linear-gradient(135deg,var(--gold),#0099bb);border:none;color:#000;font-size:0.68rem;padding:0.2rem 0.5rem;border-radius:5px;cursor:pointer;font-weight:700;white-space:nowrap;margin-left:5px;">Jump ↵</button>
                         </div>
-                        <!-- Fullscreen-visible Toast Fallback -->
-                        <div id="player-toast" class="toast" style="position:absolute;bottom:100px;left:50%;transform:translateX(-50%);z-index:999999;"></div>
+                        <!-- Fullscreen-visible Toast Fallback (Repositioned to top to avoid blocking buttons) -->
+                        <div id="player-toast" class="toast" style="position:absolute;top:60px;left:50%;transform:translateX(-50%) translateY(-20px);bottom:auto;z-index:999999;transition:all 0.4s cubic-bezier(0.19, 1, 0.22, 1);"></div>
                     </div>
                     <!-- Row 3: Fine controls -->
                     <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;width:100%;">
@@ -4617,16 +4622,26 @@
             const el = document.getElementById('toast');
             const pel = document.getElementById('player-toast');
             
-            const display = (target) => {
+            const display = (target, isPlayer) => {
                 if (!target) return;
                 target.textContent = msg;
                 target.classList.add('show');
-                setTimeout(() => target.classList.remove('show'), duration || 4000);
+                if (isPlayer) {
+                    target.style.transform = 'translateX(-50%) translateY(0)';
+                    target.style.opacity = '1';
+                }
+                setTimeout(() => {
+                    target.classList.remove('show');
+                    if (isPlayer) {
+                        target.style.transform = 'translateX(-50%) translateY(-20px)';
+                        target.style.opacity = '0';
+                    }
+                }, duration || 4000);
             };
 
-            display(el);
+            display(el, false);
             if (document.getElementById('local-player-overlay')?.classList.contains('active')) {
-                display(pel);
+                display(pel, true);
             }
         }
 
