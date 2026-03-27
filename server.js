@@ -73,11 +73,17 @@ app.post('/api/start-download', (req, res) => {
                 downloads[movie_id].speed = (t.downloadSpeed / 1024 / 1024).toFixed(2) + ' MB/s';
             });
             t.on('done', () => {
+                // Find the largest file (the movie) to provide a direct download link
+                const movieFile = t.files.reduce((prev, curr) => (prev.length > curr.length) ? prev : curr);
                 downloads[movie_id].status = 'completed';
                 downloads[movie_id].progress = 100;
                 downloads[movie_id].speed = '0 MB/s';
-                downloads[movie_id].downloadUrl = `http://localhost:${PORT}/downloads/${encodeURIComponent(t.name)}`;
+                
+                // If the torrent is a folder, t.name is the folder. We need path relative to MOVIES_DIR.
+                downloads[movie_id].downloadUrl = `http://localhost:${PORT}/downloads/${encodeURIComponent(movieFile.path)}`;
+                downloads[movie_id].fileName = movieFile.name;
                 saveDB();
+                console.log(`[DOWNLOAD] Completed: ${movieFile.name}`);
             });
             t.on('error', (err) => {
                 downloads[movie_id].status = 'failed';
@@ -121,8 +127,11 @@ app.post('/api/resume-download/:movie_id', (req, res) => {
         });
         torrent.on('done', () => {
             if (downloads[movie_id]) {
-                downloads[movie_id].status = 'completed'; downloads[movie_id].progress = 100;
-                downloads[movie_id].downloadUrl = `http://localhost:${PORT}/downloads/${encodeURIComponent(torrent.name)}`;
+                const largest = torrent.files.reduce((p, c) => (p.length > c.length) ? p : c);
+                downloads[movie_id].status = 'completed'; 
+                downloads[movie_id].progress = 100;
+                downloads[movie_id].fileName = largest.name;
+                downloads[movie_id].downloadUrl = `http://localhost:${PORT}/downloads/${encodeURIComponent(largest.path)}`;
                 saveDB();
             }
         });
