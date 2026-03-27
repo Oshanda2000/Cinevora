@@ -3680,38 +3680,49 @@
         ];
         let _siActiveSource = 0;
 
-        // ── Subtitle status chip helper ───────────────────────────────
+        // Outer timer so we can cancel previous hide if status changes quickly
+        let _subStatusHideTimer = null;
+
         function setSubStatus(msg, type) {
             const el = document.getElementById('si-sub-status');
             if (!el) return;
-            el.textContent = msg;
+
+            // Cancel any pending hide
+            if (_subStatusHideTimer) { clearTimeout(_subStatusHideTimer); _subStatusHideTimer = null; }
+
+            // Reset visibility immediately (in case it was fading/hidden)
+            el.style.transition = 'none';
             el.style.opacity = '1';
             el.style.display = 'inline-block';
-            
+            el.textContent = msg;
+
             // type: 'loading' | 'ready' | 'english' | 'error' | 'off'
             const styles = {
                 loading: { bg: 'rgba(255,200,0,0.15)', color: 'var(--gold)', border: 'rgba(255,200,0,0.35)' },
-                ready: { bg: 'rgba(0,200,80,0.15)', color: '#00c850', border: 'rgba(0,200,80,0.35)' },
-                english: { bg: 'rgba(0,180,255,0.15)', color: '#00b4ff', border: 'rgba(0,180,255,0.35)' },
-                error: { bg: 'rgba(255,60,60,0.15)', color: '#ff5a5a', border: 'rgba(255,60,60,0.35)' },
-                off: { bg: 'rgba(100,100,100,0.15)', color: '#aaa', border: 'rgba(100,100,100,0.35)' },
+                ready:   { bg: 'rgba(0,200,80,0.15)',  color: '#00c850',     border: 'rgba(0,200,80,0.35)' },
+                english: { bg: 'rgba(0,180,255,0.15)', color: '#00b4ff',     border: 'rgba(0,180,255,0.35)' },
+                error:   { bg: 'rgba(255,60,60,0.15)', color: '#ff5a5a',     border: 'rgba(255,60,60,0.35)' },
+                off:     { bg: 'rgba(100,100,100,0.15)', color: '#aaa',      border: 'rgba(100,100,100,0.35)' },
             };
             const s = styles[type] || styles.loading;
             el.style.background = s.bg;
             el.style.color = s.color;
             el.style.borderColor = s.border;
 
-            // Auto-hide success messages after 5 seconds to declutter UI
+            // Auto-hide non-loading states after 5 seconds
             if (type === 'ready' || type === 'english' || type === 'off') {
-                setTimeout(() => {
-                    if (el.textContent === msg) {
-                        el.style.transition = 'opacity 1s ease';
-                        el.style.opacity = '0';
-                        setTimeout(() => { if (el.style.opacity === '0') el.style.display = 'none'; }, 1000);
-                    }
+                _subStatusHideTimer = setTimeout(() => {
+                    el.style.transition = 'opacity 0.8s ease';
+                    el.style.opacity = '0';
+                    _subStatusHideTimer = setTimeout(() => {
+                        el.style.display = 'none';
+                        el.style.transition = 'none';
+                        _subStatusHideTimer = null;
+                    }, 850);
                 }, 5000);
             }
         }
+
 
         async function openSinhalaPlayer(mid, title, imdb) {
             console.log(`[PLAYER] Opening player for ${title} (${mid}) with IMDB: ${imdb}`);
