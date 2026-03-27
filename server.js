@@ -92,7 +92,8 @@ app.post('/api/start-download', (req, res) => {
                 delete activeTorrents[movie_id];
             });
         });
-        downloads[movie_id] = { id: movie_id, title, status: 'starting', progress: 0, speed: 'Connecting...' };
+        downloads[movie_id] = { id: movie_id, title, magnet_link, status: 'starting', progress: 0, speed: 'Connecting...' };
+        saveDB();
         res.json({ message: 'Download started', id: movie_id });
     } catch (error) { res.status(500).json({ error: 'Failed to start download' }); }
 });
@@ -139,7 +140,78 @@ app.post('/api/resume-download/:movie_id', (req, res) => {
     res.json({ message: 'Resumed successfully' });
 });
 
-// YTS API Proxy (to avoid browser CORS issues)
+app.post('/api/delete-download/:movie_id', async (req, res) => {
+    const movie_id = req.params.movie_id;
+    const dl = downloads[movie_id];
+    const t = activeTorrents[movie_id];
+
+    if (t) {
+        try { t.destroy(); } catch(e) {} 
+        delete activeTorrents[movie_id];
+    }
+
+    if (dl) {
+        if (dl.fileName) {
+            const fileRelativePath = decodeURIComponent(dl.downloadUrl?.split('/downloads/')?.[1] || dl.fileName);
+            const fullPath = path.join(MOVIES_DIR, fileRelativePath);
+            try { await fs.remove(fullPath); } catch(e) { console.warn("Cleanup failed:", e.message); }
+        }
+        delete downloads[movie_id];
+        saveDB();
+        res.json({ message: 'Deleted successfully' });
+    } else {
+        res.status(404).json({ error: 'Not found' });
+    }
+});
+
+app.get('/api/stream/:movie_id', async (req, res) => {
+    const movie_id = req.params.movie_id;
+    let torrent = activeTorrents[movie_id];
+    
+    // Wait for torrent to parse if it's there but not ready (max 10s)
+    let retries = 0;
+    while ((!torrent || !torrent.files.length) && retries < 20) {
+        await new Promise(r => setTimeout(r, 500));
+        torrent = activeTorrents[movie_id];
+        retries++;
+        if (torrent?.files?.length) break;
+    }
+
+    if (!torrent || !torrent.files.length) {
+        // Fallback: Check if completed and available in storage
+        const dl = downloads[movie_id];
+        if (dl && dl.status === 'completed') {
+            const filePath = path.join(MOVIES_DIR, decodeURIComponent(dl.downloadUrl.split('/downloads/')[1]));
+            if (fs.existsSync(filePath)) return res.sendFile(filePath);
+        }
+        return res.status(404).send('Torrent not active or metadata not ready yet. Please retry in a few seconds.');
+    }
+
+    const file = torrent.files.reduce((p, c) => (p.length > c.length) ? p : c);
+    const range = req.headers.range;
+
+    if (!range) {
+        res.setHeader('Content-Type', 'video/mp4');
+        res.setHeader('Content-Length', file.length);
+        res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+        return file.createReadStream().pipe(res);
+    }
+
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : file.length - 1;
+    const chunksize = (end - start) + 1;
+
+    res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${file.length}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': 'video/mp4',
+        'Content-Disposition': `attachment; filename="${file.name}"`
+    });
+
+    file.createReadStream({ start, end }).pipe(res);
+});
 app.get('/api/yts-proxy', async (req, res) => {
     const { query } = req.query;
     if (!query) return res.status(400).json({ error: 'Query required' });
