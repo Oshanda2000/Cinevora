@@ -2055,47 +2055,66 @@
 
         @media (max-width: 600px) {
             .local-video-subs {
-                font-size: 0.95rem;
-                bottom: 20px;
-                width: 96%;
-                padding: 0.2rem 0.5rem;
+                font-size: 1.1rem; /* Larger on mobile for readability */
+                bottom: 12%; 
+                width: 94%;
+                padding: 0.3rem 0.6rem;
             }
 
             .local-player-content {
                 border-radius: 0;
                 max-height: 100vh;
+                height: 100vh;
             }
 
             .local-player-header {
-                padding: 0.5rem 0.8rem;
+                padding: 0.4rem 0.6rem;
             }
 
             .local-player-title {
-                font-size: 0.85rem;
+                font-size: 0.75rem;
+                max-width: 150px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             .sub-lang-bar {
-                padding: 0.4rem 0.6rem !important;
+                padding: 0.6rem !important;
+                gap: 0.8rem !important; /* more space for touch */
             }
 
             .sub-lang-btn {
-                font-size: 0.65rem !important;
-                padding: 0.2rem 0.4rem !important;
-                min-height: 28px;
+                font-size: 0.75rem !important;
+                padding: 0.45rem 0.8rem !important;
+                min-height: 38px; /* Standard mobile touch target */
+                border-radius: 8px !important;
+            }
+
+            #si-player-sources .sub-lang-btn {
+                font-size: 0.7rem !important;
+                padding: 0.2rem 0.5rem !important;
+                min-height: 30px;
             }
 
             #si-seek-input {
-                width: 55px !important;
-                font-size: 0.68rem !important;
+                width: 60px !important;
+                font-size: 0.8rem !important;
             }
 
             #si-sub-timer-display {
-                font-size: 0.7rem !important;
+                font-size: 0.8rem !important;
             }
 
             .si-player-hints {
-                display: none !important; /* hide hints on mobile - too cluttered */
+                display: none !important; /* still hide hints */
             }
+
+            .sub-lang-bar > div {
+                justify-content: flex-start !important;
+                flex-wrap: wrap;
+            }
+            #si-offset-val { display: none; } /* hide fine offset to save space */
         }
 
         /* ─── SINHALA SUBTITLE PLAYER SECTION ───────────────────────── */
@@ -3666,6 +3685,9 @@
             const el = document.getElementById('si-sub-status');
             if (!el) return;
             el.textContent = msg;
+            el.style.opacity = '1';
+            el.style.display = 'inline-block';
+            
             // type: 'loading' | 'ready' | 'english' | 'error' | 'off'
             const styles = {
                 loading: { bg: 'rgba(255,200,0,0.15)', color: 'var(--gold)', border: 'rgba(255,200,0,0.35)' },
@@ -3678,6 +3700,17 @@
             el.style.background = s.bg;
             el.style.color = s.color;
             el.style.borderColor = s.border;
+
+            // Auto-hide success messages after 5 seconds to declutter UI
+            if (type === 'ready' || type === 'english' || type === 'off') {
+                setTimeout(() => {
+                    if (el.textContent === msg) {
+                        el.style.transition = 'opacity 1s ease';
+                        el.style.opacity = '0';
+                        setTimeout(() => { if (el.style.opacity === '0') el.style.display = 'none'; }, 1000);
+                    }
+                }, 5000);
+            }
         }
 
         async function openSinhalaPlayer(mid, title, imdb) {
@@ -4151,18 +4184,24 @@
 
         function _startFsAutoHide() {
             const content = document.getElementById('local-player-content');
-            if (!content) return;
+            const overlay = document.getElementById('local-player-overlay');
+            if (!content || !overlay) return;
             if (_fsHideTimer) clearTimeout(_fsHideTimer);
+            
             // Show controls first
             content.classList.remove('fs-controls-hidden');
             content.style.cursor = '';
-            // Then hide after 2.5 seconds
+            
+            // Auto-hide after 3 seconds of inactivity if player is active
             _fsHideTimer = setTimeout(() => {
-                if (_isInFullscreen()) {
+                if (overlay.classList.contains('active')) {
                     content.classList.add('fs-controls-hidden');
-                    content.style.cursor = 'none';
+                    // Hide cursor ONLY if in true fullscreen or pseudo-fullscreen
+                    if (_isInFullscreen()) {
+                        content.style.cursor = 'none';
+                    }
                 }
-            }, 2500);
+            }, 3000);
         }
 
         function _onPlayerActivity() {
