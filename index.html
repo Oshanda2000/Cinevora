@@ -1883,7 +1883,7 @@
         .local-player-content.fs-controls-hidden .si-player-hints {
             opacity: 0 !important;
             pointer-events: none !important;
-            transform: translateY(-10px);
+            transform: translateY(-5px);
         }
 
         .local-player-content.fs-controls-hidden .local-video-subs {
@@ -3680,46 +3680,39 @@
         ];
         let _siActiveSource = 0;
 
-        // Outer timer so we can cancel previous hide if status changes quickly
         let _subStatusHideTimer = null;
-
         function setSubStatus(msg, type) {
             const el = document.getElementById('si-sub-status');
             if (!el) return;
 
-            // Cancel any pending hide
-            if (_subStatusHideTimer) { clearTimeout(_subStatusHideTimer); _subStatusHideTimer = null; }
+            if (_subStatusHideTimer) clearTimeout(_subStatusHideTimer);
 
-            // Reset visibility immediately (in case it was fading/hidden)
             el.style.transition = 'none';
             el.style.opacity = '1';
             el.style.display = 'inline-block';
             el.textContent = msg;
 
-            // type: 'loading' | 'ready' | 'english' | 'error' | 'off'
             const styles = {
                 loading: { bg: 'rgba(255,200,0,0.15)', color: 'var(--gold)', border: 'rgba(255,200,0,0.35)' },
-                ready:   { bg: 'rgba(0,200,80,0.15)',  color: '#00c850',     border: 'rgba(0,200,80,0.35)' },
+                ready:   { bg: 'rgba(0,255,100,0.15)', color: '#00ff88',      border: 'rgba(0,255,100,0.35)' },
                 english: { bg: 'rgba(0,180,255,0.15)', color: '#00b4ff',     border: 'rgba(0,180,255,0.35)' },
                 error:   { bg: 'rgba(255,60,60,0.15)', color: '#ff5a5a',     border: 'rgba(255,60,60,0.35)' },
-                off:     { bg: 'rgba(100,100,100,0.15)', color: '#aaa',      border: 'rgba(100,100,100,0.35)' },
+                off:     { bg: 'rgba(150,150,150,0.15)', color: '#ccc',      border: 'rgba(150,150,150,0.35)' },
             };
             const s = styles[type] || styles.loading;
             el.style.background = s.bg;
             el.style.color = s.color;
             el.style.borderColor = s.border;
 
-            // Auto-hide non-loading states after 5 seconds
-            if (type === 'ready' || type === 'english' || type === 'off') {
+            if (type !== 'loading') {
                 _subStatusHideTimer = setTimeout(() => {
-                    el.style.transition = 'opacity 0.8s ease';
+                    el.style.transition = 'opacity 1.2s ease';
                     el.style.opacity = '0';
                     _subStatusHideTimer = setTimeout(() => {
                         el.style.display = 'none';
-                        el.style.transition = 'none';
                         _subStatusHideTimer = null;
-                    }, 850);
-                }, 5000);
+                    }, 1250);
+                }, 3500); // Hide slightly faster
             }
         }
 
@@ -3793,6 +3786,9 @@
 
             // ── AUTO-FETCH: Immediately start fetching Sinhala subtitles ──
             autoFetchSubLang('si');
+            
+            // Start auto-hide timer for controls (works windowed & fullscreen)
+            _startFsAutoHide();
         }
 
 
@@ -4196,14 +4192,15 @@
         function _startFsAutoHide() {
             const content = document.getElementById('local-player-content');
             const overlay = document.getElementById('local-player-overlay');
-            if (!content || !overlay) return;
+            if (!content || !overlay || !overlay.classList.contains('active')) return;
+            
             if (_fsHideTimer) clearTimeout(_fsHideTimer);
             
             // Show controls first
             content.classList.remove('fs-controls-hidden');
             content.style.cursor = '';
             
-            // Auto-hide after 3 seconds of inactivity if player is active
+            // Auto-hide after 3 seconds of inactivity
             _fsHideTimer = setTimeout(() => {
                 if (overlay.classList.contains('active')) {
                     content.classList.add('fs-controls-hidden');
@@ -4216,20 +4213,20 @@
         }
 
         function _onPlayerActivity() {
-            if (!_isInFullscreen()) return;
-            _startFsAutoHide(); // reset the timer
+            // Re-show controls on activity
+            _startFsAutoHide();
         }
 
         // Listen for mouse/touch activity on the player
         document.addEventListener('mousemove', (e) => {
             const overlay = document.getElementById('local-player-overlay');
-            if (overlay && overlay.classList.contains('active') && _isInFullscreen()) {
+            if (overlay && overlay.classList.contains('active')) {
                 _onPlayerActivity();
             }
         });
         document.addEventListener('touchstart', (e) => {
             const overlay = document.getElementById('local-player-overlay');
-            if (overlay && overlay.classList.contains('active') && _isInFullscreen()) {
+            if (overlay && overlay.classList.contains('active')) {
                 _onPlayerActivity();
             }
         }, { passive: true });

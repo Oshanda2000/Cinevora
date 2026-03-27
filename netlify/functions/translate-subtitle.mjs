@@ -133,9 +133,9 @@ async function fetchSinhalaSubtitle(imdb_id, movieTitle) {
     // ── TIER 4: YIFY Subtitles (no key needed — free) ─────────────────
     if (!enSrt) {
         try {
+            // Try with ID
             const yifyR = await axios.get(`https://yifysubtitles.ch/movie-imdb/${imdb_id}`, { timeout: 8000 });
             const $y = cheerio.load(yifyR.data);
-            // Prefer Sinhala, fall back to English
             let subPath = '';
             $y('.select-subtitle tr').each((_, row) => {
                 const lang = $y(row).find('td').eq(1).text().trim().toLowerCase();
@@ -158,35 +158,49 @@ async function fetchSinhalaSubtitle(imdb_id, movieTitle) {
                     const zipRes = await axios.get(fullLink, { responseType: 'arraybuffer', timeout: 10000 });
                     const zip = new AdmZip(Buffer.from(zipRes.data));
                     const srt = zip.getEntries().find(e => e.entryName.toLowerCase().endsWith('.srt') && !e.entryName.includes('__MACOSX'));
-                    if (srt) {
-                        enSrt = srt.getData().toString('utf8');
-                        console.log('[YIFY] ✅ Found subtitle via YIFY');
-                    }
+                    if (srt) { enSrt = srt.getData().toString('utf8'); console.log('[YIFY] ✅ Found via IMDB ID'); }
                 }
             }
-        } catch (e) { console.warn('[YIFY]', e.message); }
+        } catch (e) { console.warn('[YIFY-ID]', e.message); }
     }
 
-    // ── TIER 5: SubDL free (no key, search by title) ──────────────────
+    // ── TIER 5: SubDL free (no key, search by title variations) ───────
     if (!enSrt && movieTitle) {
-        try {
-            const searchQ = encodeURIComponent(movieTitle);
-            const r = await axios.get(`https://api.subdl.com/auto?query=${searchQ}&languages=en`, {
-                headers: { 'Accept': 'application/json' }, timeout: 8000
-            });
-            const results = r.data?.subtitles || r.data?.results || [];
-            if (results.length > 0) {
-                const first = results[0];
-                const zipUrl = first.url || first.zip_link || first.download_link;
-                if (zipUrl) {
-                    const base = zipUrl.startsWith('http') ? zipUrl : `https://dl.subdl.com${zipUrl}`;
-                    const zipRes = await axios.get(base, { responseType: 'arraybuffer', timeout: 10000 });
-                    const zip = new AdmZip(Buffer.from(zipRes.data));
-                    const srt = zip.getEntries().find(e => e.entryName.toLowerCase().endsWith('.srt') && !e.entryName.includes('__MACOSX'));
-                    if (srt) { enSrt = srt.getData().toString('utf8'); console.log('[SUBDL-FREE] ✅ Found via free search'); }
+        const cleanTitle = movieTitle.replace(/\(\d{4}\)/, '').trim();
+        const yearMatch = movieTitle.match(/\((\d{4})\)/);
+        const year = yearMatch ? yearMatch[1] : '';
+
+        const searches = [
+            movieTitle, // Full title with year if exists
+            cleanTitle, // Just title
+            `${cleanTitle} ${year}`.trim() // Title with space year
+        ];
+
+        for (const query of Array.from(new Set(searches))) {
+            if (enSrt) break;
+            try {
+                console.log(`[SUBDL-FREE] Searching: ${query}`);
+                const r = await axios.get(`https://api.subdl.com/auto?query=${encodeURIComponent(query)}&languages=en`, {
+                    headers: { 'Accept': 'application/json' }, timeout: 8000
+                });
+                const results = r.data?.subtitles || r.data?.results || [];
+                if (results.length > 0) {
+                    const first = results[0];
+                    const zipUrl = first.url || first.zip_link || first.download_link;
+                    if (zipUrl) {
+                        const base = zipUrl.startsWith('http') ? zipUrl : `https://dl.subdl.com${zipUrl}`;
+                        const zipRes = await axios.get(base, { responseType: 'arraybuffer', timeout: 10000 });
+                        const zip = new AdmZip(Buffer.from(zipRes.data));
+                        const srt = zip.getEntries().find(e => e.entryName.toLowerCase().endsWith('.srt') && !e.entryName.includes('__MACOSX'));
+                        if (srt) { 
+                            enSrt = srt.getData().toString('utf8'); 
+                            console.log(`[SUBDL-FREE] ✅ Found via query: ${query}`);
+                            break;
+                        }
+                    }
                 }
-            }
-        } catch (e) { console.warn('[SUBDL-FREE]', e.message); }
+            } catch (e) { console.warn(`[SUBDL-FREE] Query "${query}" failed:`, e.message); }
+        }
     }
 
     if (!enSrt) throw new Error('No English subtitle source found for this movie. Subtitles may not be available yet.');
