@@ -130,6 +130,25 @@ app.post('/api/resume-download/:movie_id', (req, res) => {
     res.json({ message: 'Resumed successfully' });
 });
 
+// YTS API Proxy (to avoid browser CORS issues)
+app.get('/api/yts-proxy', async (req, res) => {
+    const { query } = req.query;
+    if (!query) return res.status(400).json({ error: 'Query required' });
+    const domains = ['yts.mx', 'yts.bz', 'yts.li', 'yts.pm'];
+    for (const domain of domains) {
+        try {
+            const ytsUrl = `https://${domain}/api/v2/list_movies.json?query_term=${query}&limit=1&sort_by=seeds`;
+            const response = await axios.get(ytsUrl);
+            if (response.data?.status === 'ok') {
+                return res.json(response.data);
+            }
+        } catch (e) {
+            console.warn(`[YTS-PROXY] ${domain} failed: ${e.message}`);
+        }
+    }
+    res.status(500).json({ error: 'YTS unreachable across all domains' });
+});
+
 // ─────────────────────────────────────────────────────────────────
 //  SUBTITLE ENGINE (3-TIER + CLAUDE)
 // ─────────────────────────────────────────────────────────────────
