@@ -1,0 +1,12 @@
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[functions."translate-subtitle"]
+  timeout = 26
+
+[functions."get-subtitle"]
+  timeout = 15

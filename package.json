@@ -1,0 +1,31 @@
+{
+  "name": "new-folder-(2)",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.1",
+    "@vitalets/google-translate-api": "^9.2.1",
+    "adm-zip": "^0.5.16",
+    "axios": "1.13.6",
+    "baiscopelk-api": "^1.0.1",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "fs-extra": "^11.3.4",
+    "google-translate-api-x": "10.7.2",
+    "opensubtitles-api": "^5.1.2",
+    "webtorrent": "^2.8.5"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.39.1"
+  }
+}

@@ -1,0 +1,14 @@
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Node modules
+node_modules/
+
+# Storage (local downloads & subtitles)
+storage/
+
+# Temp files
+temp_out.txt
+*.log
