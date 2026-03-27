@@ -2670,7 +2670,7 @@
         const TMDB_BASE = 'https://api.themoviedb.org/3';
         let IMG_BASE = 'https://image.tmdb.org/t/p/';
         // Dynamically detect backend URL
-        const IS_LOCAL = (location.protocol === 'file:' || location.origin.includes('localhost'));
+        const IS_LOCAL = (location.protocol === 'file:' || location.href.includes('localhost') || location.href.includes('127.0.0.1') || location.hostname.startsWith('192.168.'));
         const BACKEND_URL = IS_LOCAL ? 'http://localhost:3000' : location.origin;
         let API_KEY = '15d2ea6d0dc1d476efbca3eba2b9bbfb';
         let currentMediaType = 'movie';
@@ -3096,8 +3096,16 @@
 
 
             // Download section (movies only — fetch from YTS)
-            if (type === 'movie') {
+            if (currentDetailType === 'movie') {
                 fetchYTSDownloads(data.imdb_id || null, title, year);
+            } else {
+                // TV Shows - Torrents not directly available via YTS
+                const actionsEl = document.getElementById('detail-actions');
+                const notice = document.createElement('div');
+                notice.id = 'download-section';
+                notice.style.cssText = 'margin-top:1.5rem;padding:1rem 1.2rem;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.25);border-radius:10px;font-size:0.82rem;color:var(--muted);';
+                notice.innerHTML = `<strong style="color:var(--text)">📥 Downloads for TV Series</strong><br>Downloads for TV series are coming soon. For now, you can stream all episodes directly using the sources above.`;
+                actionsEl.insertAdjacentElement('afterend', notice);
             }
 
             // Stats
